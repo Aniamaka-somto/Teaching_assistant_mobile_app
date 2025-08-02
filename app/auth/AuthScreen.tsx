@@ -120,7 +120,7 @@ const CustomButton = React.memo(
   )
 );
 
-const AuthScreen = ({ onAuthComplete }) => {
+const AuthScreen = ({ onAuthComplete, onLogout }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -222,6 +222,24 @@ const AuthScreen = ({ onAuthComplete }) => {
       }
 
       setIsLoggedIn(true);
+
+      // Redirect based on role
+      if (isSignup) {
+        if (role === "teacher") {
+          router.replace("/(tabs)/");
+        } else {
+          router.replace("/(tabs)/StudentDashboard");
+        }
+      } else {
+        // Get stored role and redirect accordingly
+        const storedRole = await AsyncStorage.getItem("userRole");
+        if (storedRole === "teacher") {
+          router.replace("/(tabs)/");
+        } else {
+          router.replace("/(tabs)/StudentDashboard");
+        }
+      }
+
       onAuthComplete();
     } catch (error) {
       console.log("Auth error:", error);
@@ -242,25 +260,24 @@ const AuthScreen = ({ onAuthComplete }) => {
   };
 
   const handleLogout = async () => {
-    try {
-      // Try to delete current session
-      await account.deleteSession("current");
-    } catch (error) {
-      console.log("Logout error:", error);
-      // Continue with cleanup even if session deletion fails
-    } finally {
-      // Clean up local storage and state
-      await AsyncStorage.removeItem("userEmail");
-      await AsyncStorage.removeItem("userRole");
-      setIsLoggedIn(false);
-      setEmail("");
-      setPassword("");
-      setName("");
-      setIsSignup(false);
-      setErrors({});
-
-      // Navigate to home or auth screen
-      router.replace("/(tabs)");
+    if (onLogout) {
+      await onLogout(); // Use the logout handler from parent
+    } else {
+      // Fallback logout logic
+      try {
+        await account.deleteSession("current");
+      } catch (error) {
+        console.log("Logout error:", error);
+      } finally {
+        await AsyncStorage.removeItem("userEmail");
+        await AsyncStorage.removeItem("userRole");
+        setIsLoggedIn(false);
+        setEmail("");
+        setPassword("");
+        setName("");
+        setIsSignup(false);
+        setErrors({});
+      }
     }
   };
 

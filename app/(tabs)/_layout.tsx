@@ -85,7 +85,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list" color={color} size={size} />
           ),
-          href: userRole === "student" ? "/(tabs)/ActivityScreen" : null,
+          href: userRole === "teachers" ? "/(tabs)/ActivityScreen" : null,
         }}
       />
 
@@ -110,7 +110,16 @@ export default function TabLayout() {
           href: userRole === "student" ? "/(tabs)/NotificationsScreen" : null,
         }}
       />
-
+      <Tabs.Screen
+        name="HelpScreen"
+        options={{
+          title: "help",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="notifications" color={color} size={size} />
+          ),
+          href: userRole === "student" ? "/(tabs)/HelpScreen" : null,
+        }}
+      />
       {/* Common tab for both roles */}
       <Tabs.Screen
         name="MoreScreen"
