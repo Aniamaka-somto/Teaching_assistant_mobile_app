@@ -2,156 +2,125 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Tabs } from "expo-router";
 import React, { useEffect, useState } from "react";
+import { useColorScheme } from "react-native";
 
-const _layout = () => {
+export default function TabLayout() {
+  const colorScheme = useColorScheme();
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const getRole = async () => {
-      const role = await AsyncStorage.getItem("userRole");
-      setUserRole(role);
+      try {
+        const role = await AsyncStorage.getItem("userRole");
+        console.log("Retrieved role from storage:", role); // Debug log
+        setUserRole(role || "student");
+      } catch (error) {
+        console.error("Error getting user role:", error);
+        setUserRole("student");
+      } finally {
+        setIsLoading(false);
+      }
     };
     getRole();
+
+    // Listen for role changes (optional: refresh when app comes to foreground)
+    const interval = setInterval(getRole, 1000); // Check every second for role changes
+    return () => clearInterval(interval);
   }, []);
 
-  if (userRole === null) return null; // Loading state
+  // Show loading state while determining role
+  if (isLoading) {
+    return null;
+  }
+
+  console.log("Current user role:", userRole); // Debug log
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#4F46E5",
-        tabBarInactiveTintColor: "#6B7280",
-        tabBarStyle: {
-          backgroundColor: "#FFFFFF",
-          borderTopWidth: 0.5,
-          borderTopColor: "#E5E7EB",
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 65,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-          elevation: 4,
-        },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600", marginTop: 2 },
-        tabBarIconStyle: { marginBottom: 2 },
+        tabBarActiveTintColor: colorScheme === "dark" ? "#fff" : "#000",
+        tabBarInactiveTintColor: colorScheme === "dark" ? "#666" : "#888",
         headerShown: false,
       }}
     >
-      {userRole === "teacher" ? (
-        <>
-          <Tabs.Screen
-            name="index"
-            options={{
-              title: "Home",
-              tabBarIcon: ({ color, focused }) => (
-                <Ionicons
-                  name={focused ? "home" : "home-outline"}
-                  size={24}
-                  color={color}
-                />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="CoursesScreen"
-            options={{
-              title: "Courses",
-              tabBarIcon: ({ color, focused }) => (
-                <Ionicons
-                  name={focused ? "book" : "book-outline"}
-                  size={24}
-                  color={color}
-                />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="ActivityScreen"
-            options={{
-              title: "Activity",
-              tabBarIcon: ({ color, focused }) => (
-                <Ionicons
-                  name={focused ? "pulse" : "pulse-outline"}
-                  size={24}
-                  color={color}
-                />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="AnalyticsScreen"
-            options={{
-              title: "Analytics",
-              tabBarIcon: ({ color, focused }) => (
-                <Ionicons
-                  name={focused ? "bar-chart" : "bar-chart-outline"}
-                  size={24}
-                  color={color}
-                />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="MoreScreen"
-            options={{
-              title: "More",
-              tabBarIcon: ({ color, focused }) => (
-                <Ionicons
-                  name={focused ? "menu" : "menu-outline"}
-                  size={24}
-                  color={color}
-                />
-              ),
-            }}
-          />
-        </>
-      ) : (
-        <>
-          <Tabs.Screen
-            name="StudentDashboard"
-            options={{
-              title: "Dashboard",
-              tabBarIcon: ({ color, focused }) => (
-                <Ionicons
-                  name={focused ? "grid" : "grid-outline"}
-                  size={24}
-                  color={color}
-                />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="NotificationsScreen"
-            options={{
-              title: "Notifications",
-              tabBarIcon: ({ color, focused }) => (
-                <Ionicons
-                  name={focused ? "notifications" : "notifications-outline"}
-                  size={24}
-                  color={color}
-                />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="HelpScreen"
-            options={{
-              title: "Help",
-              tabBarIcon: ({ color, focused }) => (
-                <Ionicons
-                  name={focused ? "help-circle" : "help-circle-outline"}
-                  size={24}
-                  color={color}
-                />
-              ),
-            }}
-          />
-        </>
-      )}
+      {/* Always render all screens but hide irrelevant ones */}
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Home",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home" color={color} size={size} />
+          ),
+          href: userRole === "teacher" ? "/(tabs)/" : null, // Only accessible to teachers
+        }}
+      />
+
+      <Tabs.Screen
+        name="CoursesScreen"
+        options={{
+          title: "Courses",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="book" color={color} size={size} />
+          ),
+          href: userRole === "teacher" ? "/(tabs)/CoursesScreen" : null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="AnalyticsScreen"
+        options={{
+          title: "Analytics",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bar-chart" color={color} size={size} />
+          ),
+          href: userRole === "teacher" ? "/(tabs)/AnalyticsScreen" : null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="ActivityScreen"
+        options={{
+          title: "Activity",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="list" color={color} size={size} />
+          ),
+          href: userRole === "student" ? "/(tabs)/ActivityScreen" : null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="StudentDashboard"
+        options={{
+          title: "Dashboard",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="grid" color={color} size={size} />
+          ),
+          href: userRole === "student" ? "/(tabs)/StudentDashboard" : null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="NotificationsScreen"
+        options={{
+          title: "Notifications",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="notifications" color={color} size={size} />
+          ),
+          href: userRole === "student" ? "/(tabs)/NotificationsScreen" : null,
+        }}
+      />
+
+      {/* Common tab for both roles */}
+      <Tabs.Screen
+        name="MoreScreen"
+        options={{
+          title: "More",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="menu" color={color} size={size} />
+          ),
+        }}
+      />
     </Tabs>
   );
-};
-
-export default _layout;
+}

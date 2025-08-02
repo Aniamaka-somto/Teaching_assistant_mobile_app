@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
-import * as SecureStore from "expo-secure-store";
-import React, { useCallback, useRef, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -129,10 +129,31 @@ const AuthScreen = ({ onAuthComplete }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  const router = useRouter();
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
   const nameRef = useRef(null);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const storedEmail = await AsyncStorage.getItem("userEmail");
+        if (storedEmail) {
+          const user = await account.get();
+          setIsLoggedIn(true);
+        }
+      } catch (error) {
+        console.log("No active session:", error);
+        setIsLoggedIn(false);
+        // Clear stored data if session is invalid
+        await AsyncStorage.removeItem("userEmail");
+        await AsyncStorage.removeItem("userRole");
+      }
+    };
+    checkSession();
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -166,37 +187,80 @@ const AuthScreen = ({ onAuthComplete }) => {
     setErrors({});
 
     try {
-      // Delete existing session before signup to avoid conflict
       if (isSignup) {
-        const sessions = await account.listSessions();
-        if (sessions.total > 0) {
-          await account.deleteSession("current");
-        }
+        // Create account with regular client (this requires guest registration to be enabled)
         await account.create(ID.unique(), email, password, name);
+
+        // Login after creation
         await account.createEmailPasswordSession(email, password);
+
+        // Store user data
         await AsyncStorage.setItem("userEmail", email);
         await AsyncStorage.setItem("userRole", role);
+
+        // Update user preferences
         await account.updatePrefs({ role });
+
         Alert.alert("Success", "Account created successfully!");
       } else {
+        // Login with regular client
         await account.createEmailPasswordSession(email, password);
-        const storedAppPassword = await SecureStore.getItemAsync("appPassword");
-        if (!storedAppPassword) {
-          Alert.alert("Error", "No app password found. Please sign up first.");
-          setIsSignup(true);
-          return;
+        await AsyncStorage.setItem("userEmail", email);
+
+        // Get user preferences or default to student
+        try {
+          const user = await account.get();
+          const userRole = user.prefs?.role || "student";
+          await AsyncStorage.setItem("userRole", userRole);
+          await account.updatePrefs({ role: userRole });
+        } catch (prefError) {
+          console.log("Error getting user prefs:", prefError);
+          await AsyncStorage.setItem("userRole", "student");
         }
+
         Alert.alert("Success", "Signed in successfully!");
       }
+
+      setIsLoggedIn(true);
       onAuthComplete();
     } catch (error) {
-      console.log(error);
-      Alert.alert(
-        "Authentication Error",
-        error.message || "An error occurred during authentication"
-      );
+      console.log("Auth error:", error);
+      let errorMessage = "An error occurred during authentication";
+
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.code === 401) {
+        errorMessage = "Invalid email or password";
+      } else if (error.code === 409) {
+        errorMessage = "An account with this email already exists";
+      }
+
+      Alert.alert("Authentication Error", errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      // Try to delete current session
+      await account.deleteSession("current");
+    } catch (error) {
+      console.log("Logout error:", error);
+      // Continue with cleanup even if session deletion fails
+    } finally {
+      // Clean up local storage and state
+      await AsyncStorage.removeItem("userEmail");
+      await AsyncStorage.removeItem("userRole");
+      setIsLoggedIn(false);
+      setEmail("");
+      setPassword("");
+      setName("");
+      setIsSignup(false);
+      setErrors({});
+
+      // Navigate to home or auth screen
+      router.replace("/(tabs)");
     }
   };
 
@@ -208,7 +272,6 @@ const AuthScreen = ({ onAuthComplete }) => {
         className="flex-1"
       >
         <View className="flex-1 justify-center px-5">
-          {/* Header */}
           <View className="items-center mb-8">
             <View className="w-20 h-20 bg-blue-600 rounded-full items-center justify-center mb-4">
               <Text className="text-white text-2xl font-bold">
@@ -225,7 +288,6 @@ const AuthScreen = ({ onAuthComplete }) => {
             </Text>
           </View>
 
-          {/* Form */}
           <View className="bg-white rounded-2xl p-6 shadow-lg mb-6">
             <InputField
               ref={emailRef}
@@ -281,28 +343,40 @@ const AuthScreen = ({ onAuthComplete }) => {
             />
           </View>
 
-          {/* Switch Auth Mode */}
-          <View className="items-center">
-            <Text className="text-gray-600 mb-2">
-              {isSignup ? "Already have an account?" : "Don't have an account?"}
-            </Text>
-            <TouchableOpacity
-              onPress={() => {
-                setIsSignup(!isSignup);
-                setErrors({});
-                setEmail("");
-                setPassword("");
-                setName("");
-              }}
-              disabled={isLoading}
-            >
-              <Text className="text-blue-600 font-semibold text-lg">
-                {isSignup ? "Sign In" : "Sign Up"}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {isLoggedIn && (
+            <View className="items-center">
+              <CustomButton
+                title="Logout"
+                onPress={handleLogout}
+                variant="primary"
+              />
+            </View>
+          )}
 
-          {/* Footer */}
+          {!isLoggedIn && (
+            <View className="items-center">
+              <Text className="text-gray-600 mb-2">
+                {isSignup
+                  ? "Already have an account?"
+                  : "Don't have an account?"}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setIsSignup(!isSignup);
+                  setErrors({});
+                  setEmail("");
+                  setPassword("");
+                  setName("");
+                }}
+                disabled={isLoading}
+              >
+                <Text className="text-blue-600 font-semibold text-lg">
+                  {isSignup ? "Sign In" : "Sign Up"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <View className="mt-8 items-center">
             <Text className="text-gray-500 text-sm text-center">
               By continuing, you agree to our Terms of Service
