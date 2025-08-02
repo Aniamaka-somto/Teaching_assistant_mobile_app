@@ -1,6 +1,6 @@
 import React from "react";
 import { ScrollView, Text, View } from "react-native";
-import ProgressBar from "../../components/Progressbar";
+import ProgressBar from "../../components/ProgressBar";
 
 const AnalyticsScreen = () => {
   return (

@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, Text } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import ActivityItem from "../../components/ActivityItem";
 
 const ActivityScreen = () => {
@@ -35,14 +35,16 @@ const ActivityScreen = () => {
   ];
 
   return (
-    <ScrollView className="flex-1 bg-gray-50">
-      <Text className="text-3xl font-bold text-gray-900 px-4 py-5">
-        Recent Activity
-      </Text>
-      {activities.map((activity, index) => (
-        <ActivityItem key={index} {...activity} />
-      ))}
-    </ScrollView>
+    <View className="flex-1">
+      <ScrollView className="flex-1 bg-gray-50">
+        <Text className="text-3xl font-bold text-gray-900 px-4 py-5">
+          Recent Activity
+        </Text>
+        {activities.map((activity, index) => (
+          <ActivityItem key={index} {...activity} />
+        ))}
+      </ScrollView>
+    </View>
   );
 };
 
