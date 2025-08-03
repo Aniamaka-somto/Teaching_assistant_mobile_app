@@ -1,4 +1,3 @@
-// app/quiz/CreateQuiz.tsx
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
@@ -12,10 +11,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { databases, ID } from "../../utils/appwrite-config"; // Import from your config file
 
 const CreateQuizScreen = () => {
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [quizTitle, setQuizTitle] = useState("");
   const [selectedCourse, setSelectedCourse] = useState("");
   const [duration, setDuration] = useState("30");
@@ -36,18 +37,25 @@ const CreateQuizScreen = () => {
 
   useEffect(() => {
     const checkRole = async () => {
-      const role = await AsyncStorage.getItem("userRole");
-      setUserRole(role || "student");
-      if (role !== "teacher") {
-        Alert.alert("Access Denied", "Only teachers can create quizzes.");
-        router.replace("/(tabs)"); // Redirect to HomeScreen
+      try {
+        const role = await AsyncStorage.getItem("userRole");
+        const userId = await AsyncStorage.getItem("userId");
+        setUserRole(role || "student");
+        setUserId(userId || "anonymous");
+        if (role !== "teacher") {
+          Alert.alert("Access Denied", "Only teachers can create quizzes.");
+          router.replace("/(tabs)");
+        }
+      } catch (error) {
+        Alert.alert("Error", "Failed to verify user role.");
+        router.replace("/(tabs)");
       }
     };
     checkRole();
   }, []);
 
   if (userRole !== "teacher") {
-    return null; // Render nothing while checking role
+    return null;
   }
 
   const addQuestion = () => {
@@ -82,7 +90,7 @@ const CreateQuizScreen = () => {
     setQuestions(questions.filter((q) => q.id !== id));
   };
 
-  const publishQuiz = () => {
+  const publishQuiz = async () => {
     if (!quizTitle.trim()) {
       Alert.alert("Error", "Please enter quiz title");
       return;
@@ -96,9 +104,31 @@ const CreateQuizScreen = () => {
       return;
     }
 
-    Alert.alert("Success", `Quiz "${quizTitle}" published successfully!`, [
-      { text: "OK", onPress: () => router.push("/(tabs)") }, // Navigate back to HomeScreen
-    ]);
+    try {
+      const quizData = {
+        title: quizTitle,
+        course: selectedCourse,
+        duration: parseInt(duration),
+        questions: JSON.stringify(questions), // Convert questions array to string
+        createdBy: userId,
+        createdAt: new Date().toISOString(),
+      };
+
+      await databases.createDocument(
+        "688fc0cd00083417e772", // Your actual database ID
+        "688fc0ed003716ec278c", // Your actual collection ID
+        ID.unique(),
+        quizData,
+        [] // No document-level permissions for now
+      );
+
+      Alert.alert("Success", `Quiz "${quizTitle}" published successfully!`, [
+        { text: "OK", onPress: () => router.push("/(tabs)") },
+      ]);
+    } catch (error) {
+      Alert.alert("Error", "Failed to publish quiz. Please try again.");
+      console.error("Publish quiz error:", error);
+    }
   };
 
   return (

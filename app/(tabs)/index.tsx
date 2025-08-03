@@ -1,13 +1,18 @@
 // app/(tabs)/index.tsx
 import { Feather as Icon, Ionicons } from "@expo/vector-icons";
+import { Query } from "appwrite"; // Import Query for database queries
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import StatCard from "../../components/StatCard";
+import { databases } from "../../utils/appwrite-config"; // Import your database config
 
 const HomeScreen = () => {
   const router = useRouter();
+  const [quizCount, setQuizCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
   const classes = [
     {
       id: 1,
@@ -32,6 +37,29 @@ const HomeScreen = () => {
     },
   ];
 
+  // Fetch quiz count from Appwrite
+  useEffect(() => {
+    const fetchQuizCount = async () => {
+      try {
+        const response = await databases.listDocuments(
+          "688fc0cd00083417e772", // Your database ID
+          "688fc0ed003716ec278c", // Your collection ID
+          [
+            Query.select(["$id"]), // Only select the ID to minimize data transfer
+          ]
+        );
+        setQuizCount(response.total);
+      } catch (error) {
+        console.error("Error fetching quiz count:", error);
+        setQuizCount(0); // Fallback to 0 if error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchQuizCount();
+  }, []);
+
   return (
     <SafeAreaView className="flex-1">
       <ScrollView className="flex-1 bg-gray-50">
@@ -45,10 +73,10 @@ const HomeScreen = () => {
           />
           <StatCard
             iconName="file-text"
-            title="Pending Quizzes"
-            value="8"
-            change="-2"
-            changeColor="text-red-500"
+            title="Total Quizzes"
+            value={isLoading ? "..." : quizCount.toString()}
+            change={quizCount > 0 ? `+${quizCount}` : "0"}
+            changeColor={quizCount > 0 ? "text-green-500" : "text-gray-500"}
             iconColor="bg-orange-500"
           />
           <StatCard
