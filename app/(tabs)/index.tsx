@@ -78,7 +78,10 @@ const HomeScreen = () => {
             <Icon name="plus" size={20} color="white" />
             <Text className="text-white font-semibold ml-2">Create Quiz</Text>
           </TouchableOpacity>
-          <TouchableOpacity className="flex-1 flex-row items-center justify-center py-3 bg-green-500 rounded-lg">
+          <TouchableOpacity
+            className="flex-1 flex-row items-center justify-center py-3 bg-green-500 rounded-lg"
+            onPress={() => router.push("/messages/SendMessage")}
+          >
             <Icon name="message-circle" size={20} color="white" />
             <Text className="text-white font-semibold ml-2">Send Message</Text>
           </TouchableOpacity>

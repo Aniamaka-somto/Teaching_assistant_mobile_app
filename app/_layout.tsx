@@ -1,4 +1,3 @@
-// app/_layout.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -110,6 +109,13 @@ export default function RootLayout() {
         name="quiz/CreateQuiz"
         options={{
           title: "Create Quiz",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="messages/SendMessage"
+        options={{
+          title: "Send Message",
           headerShown: false,
         }}
       />
