@@ -1,3 +1,4 @@
+// app/_layout.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -9,7 +10,7 @@ import "./globals.css";
 export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Add loading state
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -17,14 +18,12 @@ export default function RootLayout() {
         const email = await AsyncStorage.getItem("userEmail");
         if (email) {
           try {
-            // Verify session is still valid
             const user = await account.get();
             const role =
               user.prefs?.role ||
               (await AsyncStorage.getItem("userRole")) ||
               "student";
 
-            // Update stored role if it differs from user prefs
             if (user.prefs?.role) {
               await AsyncStorage.setItem("userRole", user.prefs.role);
             }
@@ -33,7 +32,6 @@ export default function RootLayout() {
             setIsAuthenticated(true);
           } catch (error) {
             console.log("Session invalid, clearing storage:", error);
-            // Session invalid, clear all auth data
             await AsyncStorage.multiRemove(["userEmail", "userRole"]);
             setIsAuthenticated(false);
             setUserRole(null);
@@ -47,7 +45,6 @@ export default function RootLayout() {
         setIsAuthenticated(false);
         setUserRole(null);
       } finally {
-        // Add small delay to prevent flash
         setTimeout(() => {
           setIsLoading(false);
         }, 300);
@@ -67,7 +64,6 @@ export default function RootLayout() {
       setIsAuthenticated(true);
     } catch (error) {
       console.error("Auth complete error:", error);
-      // Fallback to stored role
       const storedRole = (await AsyncStorage.getItem("userRole")) || "student";
       setUserRole(storedRole);
       setIsAuthenticated(true);
@@ -80,14 +76,12 @@ export default function RootLayout() {
     } catch (error) {
       console.log("Logout error:", error);
     } finally {
-      // Always clear local state and storage
       await AsyncStorage.multiRemove(["userEmail", "userRole"]);
       setIsAuthenticated(false);
       setUserRole(null);
     }
   };
 
-  // Show loading spinner while checking authentication
   if (isLoading) {
     return (
       <View
@@ -103,17 +97,22 @@ export default function RootLayout() {
     );
   }
 
-  // Show auth screen if not authenticated
   if (!isAuthenticated) {
     return (
       <AuthScreen onAuthComplete={handleAuthComplete} onLogout={handleLogout} />
     );
   }
 
-  // Show main app if authenticated
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="quiz/CreateQuiz"
+        options={{
+          title: "Create Quiz",
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

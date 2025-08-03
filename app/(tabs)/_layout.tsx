@@ -85,7 +85,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list" color={color} size={size} />
           ),
-          href: userRole === "teachers" ? "/(tabs)/ActivityScreen" : null,
+          href: userRole === "teacher" ? "/(tabs)/ActivityScreen" : null,
         }}
       />
 
