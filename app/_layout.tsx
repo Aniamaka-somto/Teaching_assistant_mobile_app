@@ -119,6 +119,13 @@ export default function RootLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="schedule/ScheduleCreateScreen"
+        options={{
+          title: "Create Schedule",
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

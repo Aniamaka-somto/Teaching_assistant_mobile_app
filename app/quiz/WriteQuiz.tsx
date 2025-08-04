@@ -1,3 +1,4 @@
+// WriteQuiz.tsx - Updated to store user ID on completion
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -8,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { databases } from "../../utils/appwrite-config";
+import { account, databases } from "../../utils/appwrite-config";
 
 const StudentQuizScreen = () => {
   const router = useRouter();
@@ -22,6 +23,20 @@ const StudentQuizScreen = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [quizLoaded, setQuizLoaded] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  // Get current user ID
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      try {
+        const user = await account.get();
+        setCurrentUserId(user.$id);
+      } catch (error) {
+        console.error("Error getting current user:", error);
+      }
+    };
+    getCurrentUser();
+  }, []);
 
   // Load quiz data from params or fetch from database
   useEffect(() => {
@@ -55,6 +70,7 @@ const StudentQuizScreen = () => {
                 {
                   status: "in_progress",
                   startedAt: new Date().toISOString(),
+                  startedBy: currentUserId, // Store who started the quiz
                 }
               );
               console.log("Updated quiz status from pending to in_progress");
@@ -122,6 +138,7 @@ const StudentQuizScreen = () => {
                 {
                   status: "in_progress",
                   startedAt: new Date().toISOString(),
+                  startedBy: currentUserId, // Store who started the quiz
                 }
               );
               console.log("Updated quiz status from pending to in_progress");
@@ -147,7 +164,7 @@ const StudentQuizScreen = () => {
     };
 
     loadQuiz();
-  }, [params.quizId, params.quizData, quizLoaded]);
+  }, [params.quizId, params.quizData, quizLoaded, currentUserId]);
 
   // Timer effect - separate from quiz loading
   useEffect(() => {
@@ -190,7 +207,7 @@ const StudentQuizScreen = () => {
   };
 
   const submitQuiz = async () => {
-    if (!selectedQuiz) return;
+    if (!selectedQuiz || !currentUserId) return;
 
     try {
       let correctAnswers = 0;
@@ -208,7 +225,10 @@ const StudentQuizScreen = () => {
         (correctAnswers / selectedQuiz.questions.length) * 100
       );
 
-      // Update quiz status to completed in database
+      // Get current user info
+      const currentUser = await account.get();
+
+      // Update quiz status to completed in database with user info
       try {
         await databases.updateDocument(
           "688fc0cd00083417e772",
@@ -217,12 +237,19 @@ const StudentQuizScreen = () => {
           {
             status: "completed",
             completedAt: new Date().toISOString(),
+            completedBy: currentUserId, // Store who completed the quiz
+            completedByName: currentUser.name, // Store the user's name for easy access
             score: percentage,
             totalQuestions: selectedQuiz.questions.length,
             correctAnswers: correctAnswers,
           }
         );
-        console.log("Quiz submitted successfully with score:", percentage);
+        console.log(
+          "Quiz submitted successfully with score:",
+          percentage,
+          "by user:",
+          currentUser.name
+        );
       } catch (updateError) {
         console.error("Failed to update quiz completion status:", updateError);
         // Still show the result even if DB update fails

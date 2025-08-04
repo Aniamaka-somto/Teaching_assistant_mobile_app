@@ -68,13 +68,14 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="AnalyticsScreen"
+        name="ScheduleSrcreenTeahers"
         options={{
           title: "Analytics",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bar-chart" color={color} size={size} />
           ),
-          href: userRole === "teacher" ? "/(tabs)/AnalyticsScreen" : null,
+          href:
+            userRole === "teacher" ? "/(tabs)/ScheduleSrcreenTeahers" : null,
         }}
       />
 

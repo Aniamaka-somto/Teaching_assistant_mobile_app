@@ -1,4 +1,4 @@
-// ActivityScreen.tsx - Updated with real quiz activity data
+// ActivityScreen.tsx - Updated to use real user names from auth
 import { Query } from "appwrite";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -50,73 +50,6 @@ const ActivityScreen = () => {
     return date.toLocaleDateString();
   };
 
-  const generateStudentName = (quizTitle, index) => {
-    // Generate consistent student names based on quiz and index
-    const firstNames = [
-      "Alice",
-      "Bob",
-      "Carol",
-      "David",
-      "Emma",
-      "Frank",
-      "Grace",
-      "Henry",
-      "Ivy",
-      "Jack",
-      "Kate",
-      "Liam",
-      "Maya",
-      "Noah",
-      "Olivia",
-      "Paul",
-      "Quinn",
-      "Ruby",
-      "Sam",
-      "Tara",
-      "Uma",
-      "Victor",
-      "Wendy",
-      "Xander",
-    ];
-    const lastNames = [
-      "Johnson",
-      "Chen",
-      "Davis",
-      "Wilson",
-      "Brown",
-      "Miller",
-      "Garcia",
-      "Rodriguez",
-      "Martinez",
-      "Anderson",
-      "Taylor",
-      "Thomas",
-      "Jackson",
-      "White",
-      "Harris",
-      "Martin",
-      "Thompson",
-      "Moore",
-      "Young",
-      "Allen",
-      "King",
-      "Wright",
-      "Lopez",
-      "Hill",
-    ];
-
-    // Use quiz title and index to create consistent names
-    const titleHash = quizTitle.split("").reduce((a, b) => {
-      a = (a << 5) - a + b.charCodeAt(0);
-      return a & a;
-    }, 0);
-
-    const firstIndex = Math.abs(titleHash + index) % firstNames.length;
-    const lastIndex = Math.abs(titleHash + index * 2) % lastNames.length;
-
-    return `${firstNames[firstIndex]} ${lastNames[lastIndex]}`;
-  };
-
   const fetchActivities = async () => {
     try {
       // Fetch recent quiz activities
@@ -125,7 +58,7 @@ const ActivityScreen = () => {
         "688fc0ed003716ec278c", // Your collection ID
         [
           Query.orderDesc("$updatedAt"), // Order by most recent updates
-          Query.limit(20), // Limit to recent activities
+          Query.limit(30), // Get more records to have enough activities
         ]
       );
 
@@ -138,7 +71,7 @@ const ActivityScreen = () => {
           activityList.push({
             id: `created-${quiz.$id}`,
             initials: "T", // Teacher created
-            name: "Teacher",
+            name: "you",
             action: `created "${quiz.title}"`,
             time: formatTimeAgo(quiz.createdAt),
             color: "bg-blue-500",
@@ -146,9 +79,26 @@ const ActivityScreen = () => {
           });
         }
 
-        // Quiz completion activities
+        // Quiz start activities (for in-progress quizzes)
+        if (quiz.status === "in_progress" && quiz.startedAt) {
+          // Use real user name if available, otherwise fall back to generic name
+          const studentName = quiz.startedByName || "Student";
+
+          activityList.push({
+            id: `started-${quiz.$id}`,
+            initials: getInitials(studentName),
+            name: studentName,
+            action: `started "${quiz.title}"`,
+            time: formatTimeAgo(quiz.startedAt),
+            color: getActivityColor(index + 3),
+            timestamp: new Date(quiz.startedAt),
+          });
+        }
+
+        // Quiz completion activities - Now with real user names!
         if (quiz.status === "completed" && quiz.completedAt) {
-          const studentName = generateStudentName(quiz.title, index);
+          // Use the real user name stored in completedByName
+          const studentName = quiz.completedByName || "Student";
           const score = quiz.score || 0;
 
           activityList.push({
@@ -157,23 +107,13 @@ const ActivityScreen = () => {
             name: studentName,
             action: `completed "${quiz.title}" (${score}%)`,
             time: formatTimeAgo(quiz.completedAt),
-            color: getActivityColor(index),
+            color:
+              score >= 80
+                ? "bg-green-500"
+                : score >= 60
+                ? "bg-blue-500"
+                : "bg-orange-500",
             timestamp: new Date(quiz.completedAt),
-          });
-        }
-
-        // Quiz start activities (for in-progress quizzes)
-        if (quiz.status === "in_progress" && quiz.startedAt) {
-          const studentName = generateStudentName(quiz.title, index + 10);
-
-          activityList.push({
-            id: `started-${quiz.$id}`,
-            initials: getInitials(studentName),
-            name: studentName,
-            action: `started "${quiz.title}"`,
-            time: formatTimeAgo(quiz.startedAt),
-            color: getActivityColor(index + 5),
-            timestamp: new Date(quiz.startedAt),
           });
         }
       });
@@ -181,8 +121,8 @@ const ActivityScreen = () => {
       // Sort activities by timestamp (most recent first)
       activityList.sort((a, b) => b.timestamp - a.timestamp);
 
-      // Take the most recent 15 activities
-      setActivities(activityList.slice(0, 15));
+      // Take the most recent 20 activities
+      setActivities(activityList.slice(0, 20));
     } catch (error) {
       console.error("Error fetching activities:", error);
       // Fallback to some mock data
@@ -244,16 +184,44 @@ const ActivityScreen = () => {
             </Text>
           </View>
         ) : (
-          activities.map((activity) => (
-            <ActivityItem
-              key={activity.id}
-              initials={activity.initials}
-              name={activity.name}
-              action={activity.action}
-              time={activity.time}
-              color={activity.color}
-            />
-          ))
+          <View>
+            {activities.map((activity) => (
+              <ActivityItem
+                key={activity.id}
+                initials={activity.initials}
+                name={activity.name}
+                action={activity.action}
+                time={activity.time}
+                color={activity.color}
+              />
+            ))}
+
+            {/* Activity Summary */}
+            <View className="px-4 py-6 mt-4">
+              <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                <Text className="text-lg font-semibold text-gray-900 mb-2">
+                  Activity Summary
+                </Text>
+                <Text className="text-gray-600">
+                  {
+                    activities.filter((a) => a.action.includes("completed"))
+                      .length
+                  }{" "}
+                  quizzes completed •{" "}
+                  {
+                    activities.filter((a) => a.action.includes("started"))
+                      .length
+                  }{" "}
+                  quizzes started •{" "}
+                  {
+                    activities.filter((a) => a.action.includes("created"))
+                      .length
+                  }{" "}
+                  quizzes created
+                </Text>
+              </View>
+            </View>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
