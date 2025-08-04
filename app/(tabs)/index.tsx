@@ -1,5 +1,6 @@
-// app/(tabs)/index.tsx - Updated with real data integration
+// app/(tabs)/index.tsx - Fixed with authentication check
 import { Feather as Icon, Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Query } from "appwrite";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -20,6 +21,7 @@ const HomeScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState("");
   const [userInitial, setUserInitial] = useState("T");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [stats, setStats] = useState({
     activeStudents: 0,
     pendingQuizzes: 0,
@@ -51,10 +53,20 @@ const HomeScreen = () => {
     },
   ];
 
-  const fetchData = async () => {
+  const checkAuthAndFetchData = async () => {
     try {
-      // Get teacher info
+      // First check if user is authenticated
+      const storedEmail = await AsyncStorage.getItem("userEmail");
+      if (!storedEmail) {
+        setIsAuthenticated(false);
+        setIsLoading(false);
+        return;
+      }
+
+      // Try to get user session
       const user = await account.get();
+      setIsAuthenticated(true);
+
       const fullName = user.name || "Teacher";
       setUserName(fullName);
       setUserInitial(fullName.charAt(0).toUpperCase());
@@ -126,13 +138,19 @@ const HomeScreen = () => {
       });
     } catch (error) {
       console.error("Error fetching teacher data:", error);
-      // Set default values on error
-      setStats({
-        activeStudents: 0,
-        pendingQuizzes: 0,
-        averageGrade: 0,
-        responseTime: "N/A",
-      });
+      // If there's an authentication error, clear storage and set unauthenticated
+      if (error.code === 401 || error.message?.includes("missing scope")) {
+        await AsyncStorage.multiRemove(["userEmail", "userId", "userRole"]);
+        setIsAuthenticated(false);
+      } else {
+        // Set default values on other errors
+        setStats({
+          activeStudents: 0,
+          pendingQuizzes: 0,
+          averageGrade: 0,
+          responseTime: "N/A",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -141,19 +159,24 @@ const HomeScreen = () => {
   // Use useFocusEffect to refetch when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      fetchData();
+      checkAuthAndFetchData();
     }, [])
   );
 
   useEffect(() => {
-    fetchData();
+    checkAuthAndFetchData();
   }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchData();
+    await checkAuthAndFetchData();
     setRefreshing(false);
   };
+
+  // If not authenticated, don't render the teacher dashboard
+  if (!isAuthenticated && !isLoading) {
+    return null; // Let the root layout handle showing AuthScreen
+  }
 
   return (
     <SafeAreaView className="flex-1">
@@ -181,7 +204,7 @@ const HomeScreen = () => {
           </View>
           <TouchableOpacity
             className="bg-blue-500 rounded-full p-2 ml-2"
-            onPress={() => router.push("/(tabs)/NotificationsScreen")}
+            onPress={() => router.push("/notification/NotificationsScreen")}
           >
             <Icon name="bell" size={20} color="white" />
           </TouchableOpacity>

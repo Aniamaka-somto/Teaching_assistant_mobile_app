@@ -21,18 +21,24 @@ const MoreScreen = () => {
 
   const handleLogout = async () => {
     try {
-      const session = await account.get();
-      await account.deleteSession("current");
-      await AsyncStorage.removeItem("userEmail");
-      await AsyncStorage.removeItem("userRole");
-      router.replace("/"); // Reset to root, let layout handle auth
+      // Clear storage first
+      await AsyncStorage.multiRemove(["userEmail", "userRole", "userId"]);
+
+      // Try to delete session
+      try {
+        await account.deleteSession("current");
+      } catch (sessionError) {
+        console.log("Session deletion error (ignoring):", sessionError);
+      }
+
+      // Just replace with root - let the layout handle the rest
+      router.replace("/");
     } catch (error) {
       console.log("Logout error:", error);
-      await AsyncStorage.removeItem("userEmail");
-      await AsyncStorage.removeItem("userRole");
+      // Even if there's an error, clear storage and navigate
+      await AsyncStorage.multiRemove(["userEmail", "userRole", "userId"]);
       router.replace("/");
     }
-    // No need for push or timeout if state reset works
   };
 
   return (
