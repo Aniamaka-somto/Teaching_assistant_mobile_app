@@ -126,6 +126,13 @@ export default function RootLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="notification/NotificationsScreen"
+        options={{
+          title: "Notifications",
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

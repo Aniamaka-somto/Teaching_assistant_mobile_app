@@ -40,6 +40,7 @@ export default function TabLayout() {
         headerShown: false,
       }}
     >
+      {/* Teacher Tabs */}
       <Tabs.Screen
         name="index"
         options={{
@@ -71,16 +72,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="ScheduleScreen"
-        options={{
-          title: "Schedules",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar" color={color} size={size} />
-          ),
-          href: userRole === "student" ? "/(tabs)/ScheduleScreen" : null,
-        }}
-      />
-      <Tabs.Screen
         name="ActivityScreen"
         options={{
           title: "Activity",
@@ -90,6 +81,8 @@ export default function TabLayout() {
           href: userRole === "teacher" ? "/(tabs)/ActivityScreen" : null,
         }}
       />
+
+      {/* Student Tabs */}
       <Tabs.Screen
         name="StudentDashboard"
         options={{
@@ -101,32 +94,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="NotificationsScreen"
+        name="ScheduleScreen"
         options={{
-          title: "Notifications",
+          title: "Schedules",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications" color={color} size={size} />
+            <Ionicons name="calendar" color={color} size={size} />
           ),
-          href: userRole === "student" ? "/(tabs)/NotificationsScreen" : null,
-        }}
-      />
-      <Tabs.Screen
-        name="HelpScreen"
-        options={{
-          title: "Help",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="help-circle" color={color} size={size} />
-          ),
-          href: userRole === "student" ? "/(tabs)/HelpScreen" : null,
-        }}
-      />
-      <Tabs.Screen
-        name="MoreScreen"
-        options={{
-          title: "More",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="menu" color={color} size={size} />
-          ),
+          href: userRole === "student" ? "/(tabs)/ScheduleScreen" : null,
         }}
       />
       <Tabs.Screen
@@ -139,6 +113,29 @@ export default function TabLayout() {
           href: userRole === "student" ? "/(tabs)/QuizScreen" : null,
         }}
       />
+      <Tabs.Screen
+        name="HelpScreen"
+        options={{
+          title: "Help",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="help-circle" color={color} size={size} />
+          ),
+          href: userRole === "student" ? "/(tabs)/HelpScreen" : null,
+        }}
+      />
+
+      {/* Common Tab for Both */}
+      <Tabs.Screen
+        name="MoreScreen"
+        options={{
+          title: "More",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="menu" color={color} size={size} />
+          ),
+        }}
+      />
+
+      {/* Remove NotificationsScreen from tabs since it's now in app/notification folder */}
     </Tabs>
   );
 }

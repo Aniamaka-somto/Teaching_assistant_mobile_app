@@ -1,4 +1,4 @@
-// StudentDashboard.tsx - Updated with real data integration
+// StudentDashboard.tsx - Updated with fixed notification navigation
 import { Feather as Icon } from "@expo/vector-icons";
 import { Query } from "appwrite";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -205,7 +205,7 @@ const StudentDashboard = () => {
           </View>
           <TouchableOpacity
             className="bg-blue-500 rounded-full p-2 ml-2"
-            onPress={() => router.push("/(tabs)/NotificationsScreen")}
+            onPress={() => router.push("/notification/NotificationsScreen")}
           >
             <Icon name="bell" size={20} color="white" />
           </TouchableOpacity>
