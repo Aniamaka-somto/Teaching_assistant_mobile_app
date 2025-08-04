@@ -36,9 +36,26 @@ export default function TabLayout() {
     <Tabs
       initialRouteName={userRole === "teacher" ? "index" : "StudentDashboard"}
       screenOptions={{
-        tabBarActiveTintColor: colorScheme === "dark" ? "#fff" : "#000",
-        tabBarInactiveTintColor: colorScheme === "dark" ? "#666" : "#888",
+        tabBarActiveTintColor: "#007AFF", // Blue for active
+        tabBarInactiveTintColor: "#8E8E93", // Gray for inactive
+        tabBarStyle: {
+          backgroundColor: "#FFFFFF", // Always white background
+          borderTopWidth: 1,
+          borderTopColor: "#E5E5EA", // Light gray border
+          paddingBottom: 5,
+          paddingTop: 5,
+          height: 60,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: "500",
+          marginTop: 4,
+        },
+        tabBarIconStyle: {
+          marginBottom: -3,
+        },
         headerShown: false,
+        tabBarHideOnKeyboard: true, // Hide tab bar when keyboard is open
       }}
     >
       {/* Teacher Tabs */}
@@ -46,8 +63,12 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              color={color}
+              size={size}
+            />
           ),
           href: userRole === "teacher" ? "/(tabs)/" : null,
         }}
@@ -56,8 +77,12 @@ export default function TabLayout() {
         name="CoursesScreen"
         options={{
           title: "Courses",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="book" color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "book" : "book-outline"}
+              color={color}
+              size={size}
+            />
           ),
           href: userRole === "teacher" ? "/(tabs)/CoursesScreen" : null,
         }}
@@ -66,8 +91,12 @@ export default function TabLayout() {
         name="ScheduleScreenTeacher"
         options={{
           title: "Schedules",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar" color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "calendar" : "calendar-outline"}
+              color={color}
+              size={size}
+            />
           ),
           href: userRole === "teacher" ? "/(tabs)/ScheduleScreenTeacher" : null,
         }}
@@ -76,8 +105,12 @@ export default function TabLayout() {
         name="ActivityScreen"
         options={{
           title: "Activity",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="list" color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "list" : "list-outline"}
+              color={color}
+              size={size}
+            />
           ),
           href: userRole === "teacher" ? "/(tabs)/ActivityScreen" : null,
         }}
@@ -88,8 +121,12 @@ export default function TabLayout() {
         name="StudentDashboard"
         options={{
           title: "Dashboard",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="grid" color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "grid" : "grid-outline"}
+              color={color}
+              size={size}
+            />
           ),
           href: userRole === "student" ? "/(tabs)/StudentDashboard" : null,
         }}
@@ -98,8 +135,12 @@ export default function TabLayout() {
         name="ScheduleScreen"
         options={{
           title: "Schedules",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar" color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "calendar" : "calendar-outline"}
+              color={color}
+              size={size}
+            />
           ),
           href: userRole === "student" ? "/(tabs)/ScheduleScreen" : null,
         }}
@@ -108,8 +149,12 @@ export default function TabLayout() {
         name="QuizScreen"
         options={{
           title: "Quizzes",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="document-text" color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "document-text" : "document-text-outline"}
+              color={color}
+              size={size}
+            />
           ),
           href: userRole === "student" ? "/(tabs)/QuizScreen" : null,
         }}
@@ -118,8 +163,12 @@ export default function TabLayout() {
         name="HelpScreen"
         options={{
           title: "Help",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="help-circle" color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "help-circle" : "help-circle-outline"}
+              color={color}
+              size={size}
+            />
           ),
           href: userRole === "student" ? "/(tabs)/HelpScreen" : null,
         }}
@@ -130,13 +179,15 @@ export default function TabLayout() {
         name="MoreScreen"
         options={{
           title: "More",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="menu" color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "menu" : "menu-outline"}
+              color={color}
+              size={size}
+            />
           ),
         }}
       />
-
-      {/* Remove NotificationsScreen from tabs since it's now in app/notification folder */}
     </Tabs>
   );
 }
