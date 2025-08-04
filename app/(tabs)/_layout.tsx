@@ -34,6 +34,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      initialRouteName={userRole === "teacher" ? "index" : "StudentDashboard"}
       screenOptions={{
         tabBarActiveTintColor: colorScheme === "dark" ? "#fff" : "#000",
         tabBarInactiveTintColor: colorScheme === "dark" ? "#666" : "#888",

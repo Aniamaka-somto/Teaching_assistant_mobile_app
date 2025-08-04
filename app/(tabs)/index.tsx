@@ -13,7 +13,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import StatCard from "../../components/StatCard";
-import { account, databases } from "../../utils/appwrite-config";
+import {
+  account,
+  DATABASE_ID,
+  databases,
+  SCHEDULES_COLLECTION_ID,
+} from "../../utils/appwrite-config";
 
 const HomeScreen = () => {
   const router = useRouter();
@@ -29,29 +34,7 @@ const HomeScreen = () => {
     responseTime: "N/A",
   });
 
-  const classes = [
-    {
-      id: 1,
-      subject: "Advanced Math",
-      location: "Room A",
-      time: "10:00 AM",
-      students: 28,
-    },
-    {
-      id: 2,
-      subject: "CS 101",
-      location: "Lab 3",
-      time: "2:00 PM",
-      students: 35,
-    },
-    {
-      id: 3,
-      subject: "Data Structures",
-      location: "Room B",
-      time: "4:30 PM",
-      students: 22,
-    },
-  ];
+  const [todaysClasses, setTodaysClasses] = useState([]);
 
   const checkAuthAndFetchData = async () => {
     try {
@@ -65,6 +48,7 @@ const HomeScreen = () => {
 
       // Try to get user session
       const user = await account.get();
+      const storedUserId = await AsyncStorage.getItem("userId");
       setIsAuthenticated(true);
 
       const fullName = user.name || "Teacher";
@@ -136,6 +120,11 @@ const HomeScreen = () => {
         averageGrade,
         responseTime: avgResponseTime,
       });
+
+      // Fetch today's classes from schedules
+      if (storedUserId) {
+        await fetchTodaysClasses(storedUserId);
+      }
     } catch (error) {
       console.error("Error fetching teacher data:", error);
       // If there's an authentication error, clear storage and set unauthenticated
@@ -153,6 +142,55 @@ const HomeScreen = () => {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchTodaysClasses = async (teacherId) => {
+    try {
+      // Get current day name
+      const today = new Date().toLocaleDateString("en-US", { weekday: "long" });
+
+      // Fetch active schedules for this teacher
+      const schedulesResponse = await databases.listDocuments(
+        DATABASE_ID,
+        SCHEDULES_COLLECTION_ID,
+        [Query.equal("isActive", true), Query.equal("teacherId", teacherId)]
+      );
+
+      // Extract today's classes from all schedules
+      const todaysClassesData = [];
+
+      schedulesResponse.documents.forEach((schedule) => {
+        try {
+          const weekSchedule = JSON.parse(schedule.weekSchedule || "[]");
+          const todayClasses = weekSchedule.filter((cls) => cls.day === today);
+
+          todayClasses.forEach((cls) => {
+            todaysClassesData.push({
+              id: `${schedule.$id}-${cls.id}`,
+              subject: cls.subject,
+              location: cls.location,
+              time: cls.time,
+              students: cls.students,
+              type: cls.type,
+              scheduleName: schedule.name,
+            });
+          });
+        } catch (parseError) {
+          console.error("Error parsing schedule:", parseError);
+        }
+      });
+
+      // Sort by time
+      todaysClassesData.sort((a, b) => {
+        // Simple time comparison (you might want to improve this)
+        return a.time.localeCompare(b.time);
+      });
+
+      setTodaysClasses(todaysClassesData);
+    } catch (error) {
+      console.error("Error fetching today's classes:", error);
+      setTodaysClasses([]);
     }
   };
 
@@ -335,34 +373,54 @@ const HomeScreen = () => {
             Today&apos;s Classes
           </Text>
 
-          {classes.map((classItem) => (
-            <View
-              key={classItem.id}
-              className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100"
-            >
-              <View className="flex-row items-center">
-                <View className="bg-blue-100 rounded-xl p-3 mr-4">
-                  <Ionicons name="book" size={24} color="#3B82F6" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-lg font-semibold text-gray-900 mb-1">
-                    {classItem.subject}
-                  </Text>
-                  <Text className="text-sm text-gray-500">
-                    {classItem.location}
-                  </Text>
-                </View>
-                <View className="items-end">
-                  <Text className="text-lg font-semibold text-gray-900 mb-1">
-                    {classItem.time}
-                  </Text>
-                  <Text className="text-sm text-gray-500">
-                    {classItem.students} students
-                  </Text>
+          {todaysClasses.length === 0 ? (
+            <View className="bg-white rounded-2xl p-8 items-center">
+              <Ionicons name="calendar-outline" size={48} color="#9CA3AF" />
+              <Text className="text-lg font-medium text-gray-500 mt-4">
+                No classes scheduled for today
+              </Text>
+              <Text className="text-gray-400 text-center mt-2">
+                {new Date().toLocaleDateString("en-US", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </Text>
+            </View>
+          ) : (
+            todaysClasses.map((classItem) => (
+              <View
+                key={classItem.id}
+                className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100"
+              >
+                <View className="flex-row items-center">
+                  <View className="bg-blue-100 rounded-xl p-3 mr-4">
+                    <Ionicons name="book" size={24} color="#3B82F6" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-lg font-semibold text-gray-900 mb-1">
+                      {classItem.subject}
+                    </Text>
+                    <Text className="text-sm text-gray-500 mb-1">
+                      {classItem.location} • {classItem.type}
+                    </Text>
+                    <Text className="text-xs text-gray-400">
+                      From: {classItem.scheduleName}
+                    </Text>
+                  </View>
+                  <View className="items-end">
+                    <Text className="text-lg font-semibold text-gray-900 mb-1">
+                      {classItem.time}
+                    </Text>
+                    <Text className="text-sm text-gray-500">
+                      {classItem.students} students
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
