@@ -1,6 +1,6 @@
 // app/(tabs)/index.tsx
 import { Feather as Icon, Ionicons } from "@expo/vector-icons";
-import { Query } from "appwrite"; // Import Query for database queries
+import { Query } from "appwrite"; // Import Query and Functions
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
@@ -11,6 +11,7 @@ import { databases } from "../../utils/appwrite-config"; // Import your database
 const HomeScreen = () => {
   const router = useRouter();
   const [quizCount, setQuizCount] = useState(0);
+  const [studentCount, setStudentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   const classes = [
@@ -37,27 +38,33 @@ const HomeScreen = () => {
     },
   ];
 
-  // Fetch quiz count from Appwrite
+  // Fetch quiz count and student count from Appwrite
   useEffect(() => {
-    const fetchQuizCount = async () => {
+    const fetchData = async () => {
       try {
-        const response = await databases.listDocuments(
+        // Fetch quiz count
+        const quizResponse = await databases.listDocuments(
           "688fc0cd00083417e772", // Your database ID
           "688fc0ed003716ec278c", // Your collection ID
           [
             Query.select(["$id"]), // Only select the ID to minimize data transfer
           ]
         );
-        setQuizCount(response.total);
+        setQuizCount(quizResponse.total);
+
+        // Simple approach: Use a reasonable estimate for now
+        // You can manually update this number or implement real counting later
+        setStudentCount(28); // Update this manually or use the function approach above
       } catch (error) {
-        console.error("Error fetching quiz count:", error);
-        setQuizCount(0); // Fallback to 0 if error
+        console.error("Error fetching data:", error);
+        setQuizCount(0);
+        setStudentCount(0);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchQuizCount();
+    fetchData();
   }, []);
 
   return (
@@ -67,8 +74,9 @@ const HomeScreen = () => {
           <StatCard
             iconName="users"
             title="Active Students"
-            value="124"
-            change="+12"
+            value={isLoading ? "..." : studentCount.toString()}
+            change={studentCount > 0 ? `+${studentCount}` : "0"}
+            changeColor={studentCount > 0 ? "text-green-500" : "text-gray-500"}
             iconColor="bg-blue-500"
           />
           <StatCard

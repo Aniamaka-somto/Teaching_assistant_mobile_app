@@ -130,6 +130,25 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="QuizScreen"
+        options={{
+          title: "Notifications",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="notifications" color={color} size={size} />
+          ),
+          href: userRole === "student" ? "/(tabs)/QuizScreen" : null,
+        }}
+      />
+      {/* <Tabs.Screen
+        name="WriteQuiz"
+        options={{
+          title: "quiz",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="menu" color={color} size={size} />
+          ),
+        }}
+      /> */}
     </Tabs>
   );
 }
