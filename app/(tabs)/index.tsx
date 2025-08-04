@@ -13,6 +13,7 @@ const HomeScreen = () => {
   const [quizCount, setQuizCount] = useState(0);
   const [studentCount, setStudentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingQuizCount, setPendingQuizCount] = useState(0);
 
   const classes = [
     {
@@ -39,25 +40,33 @@ const HomeScreen = () => {
   ];
 
   // Fetch quiz count and student count from Appwrite
+  // Updated useEffect in index.tsx
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch quiz count
+        // Fetch total quiz count
         const quizResponse = await databases.listDocuments(
           "688fc0cd00083417e772", // Your database ID
           "688fc0ed003716ec278c", // Your collection ID
-          [
-            Query.select(["$id"]), // Only select the ID to minimize data transfer
-          ]
+          [Query.select(["$id"])]
         );
         setQuizCount(quizResponse.total);
 
-        // Simple approach: Use a reasonable estimate for now
-        // You can manually update this number or implement real counting later
-        setStudentCount(28); // Update this manually or use the function approach above
+        // Fetch pending quiz count
+        const pendingQuizResponse = await databases.listDocuments(
+          "688fc0cd00083417e772", // Your database ID
+          "688fc0ed003716ec278c", // Your collection ID
+          [Query.equal("status", "pending"), Query.select(["$id"])]
+        );
+
+        // Add a new state for pending quizzes
+        setPendingQuizCount(pendingQuizResponse.total);
+
+        setStudentCount(28); // Keep your existing student count logic
       } catch (error) {
         console.error("Error fetching data:", error);
         setQuizCount(0);
+        setPendingQuizCount(0);
         setStudentCount(0);
       } finally {
         setIsLoading(false);
@@ -80,11 +89,15 @@ const HomeScreen = () => {
             iconColor="bg-blue-500"
           />
           <StatCard
-            iconName="file-text"
-            title="Total Quizzes"
-            value={isLoading ? "..." : quizCount.toString()}
-            change={quizCount > 0 ? `+${quizCount}` : "0"}
-            changeColor={quizCount > 0 ? "text-green-500" : "text-gray-500"}
+            iconName="clock"
+            title="Pending Quizzes"
+            value={isLoading ? "..." : pendingQuizCount.toString()}
+            change={
+              pendingQuizCount > 0 ? `${pendingQuizCount} pending` : "All done"
+            }
+            changeColor={
+              pendingQuizCount > 0 ? "text-orange-500" : "text-green-500"
+            }
             iconColor="bg-orange-500"
           />
           <StatCard

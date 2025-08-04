@@ -90,6 +90,8 @@ const CreateQuizScreen = () => {
     setQuestions(questions.filter((q) => q.id !== id));
   };
 
+  // In your publishQuiz function, update the quizData object:
+
   const publishQuiz = async () => {
     if (!quizTitle.trim()) {
       Alert.alert("Error", "Please enter quiz title");
@@ -109,9 +111,10 @@ const CreateQuizScreen = () => {
         title: quizTitle,
         course: selectedCourse,
         duration: parseInt(duration),
-        questions: JSON.stringify(questions), // Convert questions array to string
+        questions: JSON.stringify(questions),
         createdBy: userId,
         createdAt: new Date().toISOString(),
+        status: "pending", // Add this line - quiz starts as pending
       };
 
       await databases.createDocument(
@@ -130,7 +133,6 @@ const CreateQuizScreen = () => {
       console.error("Publish quiz error:", error);
     }
   };
-
   return (
     <SafeAreaView className="flex-1">
       <ScrollView className="flex-1 bg-gray-100">
