@@ -1,8 +1,10 @@
+// app/schedule/ScheduleCreateScreen.tsx
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
-  Modal,
   ScrollView,
   Text,
   TextInput,
@@ -10,455 +12,356 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-interface Class {
-  id: string;
-  subject: string;
-  location: string;
-  type: string;
-  time: string;
-  students: number;
-}
-
-interface DaySchedule {
-  day: string;
-  classes: Class[];
-}
+import {
+  DATABASE_ID,
+  databases,
+  ID,
+  Permission,
+  Role,
+  SCHEDULES_COLLECTION_ID,
+} from "../../utils/appwrite-config";
 
 const ScheduleCreateScreen = () => {
-  const [scheduleMode, setScheduleMode] = useState<"manual" | "ai">("manual");
-  const [showAddClassModal, setShowAddClassModal] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<string>("");
-  const [newClass, setNewClass] = useState({
-    subject: "",
-    location: "",
-    type: "Lecture",
-    time: "",
-    students: "",
-  });
+  const router = useRouter();
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [scheduleName, setScheduleName] = useState("");
+  const [classes, setClasses] = useState([]); // Local state for UI
+  const [classDay, setClassDay] = useState("");
+  const [classSubject, setClassSubject] = useState("");
+  const [classLocation, setClassLocation] = useState("");
+  const [classType, setClassType] = useState("");
+  const [classTime, setClassTime] = useState("");
+  const [classStudents, setClassStudents] = useState("");
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const types = ["Lecture", "Lab", "Tutorial", "Project"];
+  const subjects = [
+    "Advanced Mathematics",
+    "Computer Science 101",
+    "Data Structures",
+    "Algorithm Design",
+  ];
 
-  const [weekSchedule, setWeekSchedule] = useState<DaySchedule[]>([
-    { day: "Monday", classes: [] },
-    { day: "Tuesday", classes: [] },
-    { day: "Wednesday", classes: [] },
-    { day: "Thursday", classes: [] },
-    { day: "Friday", classes: [] },
-    { day: "Saturday", classes: [] },
-    { day: "Sunday", classes: [] },
-  ]);
+  useEffect(() => {
+    const checkRole = async () => {
+      try {
+        const role = await AsyncStorage.getItem("userRole");
+        const userId = await AsyncStorage.getItem("userId");
+        console.log("Checking role:", role, "userId:", userId);
+        setUserRole(role || "student");
+        setUserId(userId || null);
+        if (role !== "teacher" || !userId) {
+          Alert.alert("Access Denied", "Only teachers can create schedules.");
+          router.replace("/(tabs)");
+        }
+      } catch (error) {
+        Alert.alert("Error", "Failed to verify user role.");
+        router.replace("/(tabs)");
+      }
+    };
+    checkRole();
+  }, []);
 
-  const [aiPrompt, setAiPrompt] = useState("");
+  if (userRole !== "teacher") {
+    return null;
+  }
 
   const addClass = () => {
     if (
-      !newClass.subject ||
-      !newClass.location ||
-      !newClass.time ||
-      !newClass.students
+      !classDay ||
+      !classSubject ||
+      !classLocation ||
+      !classType ||
+      !classTime ||
+      !classStudents
     ) {
-      Alert.alert("Error", "Please fill in all fields");
+      Alert.alert("Error", "Please fill all class fields");
       return;
     }
 
-    const dayIndex = weekSchedule.findIndex((d) => d.day === selectedDay);
-    if (weekSchedule[dayIndex].classes.length >= 3) {
-      Alert.alert("Error", "Maximum 3 classes per day allowed");
-      return;
-    }
-
-    const classToAdd: Class = {
+    const newClass = {
       id: Date.now().toString(),
-      ...newClass,
-      students: parseInt(newClass.students),
+      day: classDay,
+      subject: classSubject,
+      location: classLocation,
+      type: classType,
+      time: classTime,
+      students: parseInt(classStudents),
     };
 
-    setWeekSchedule((prev) =>
-      prev.map((day) =>
-        day.day === selectedDay
-          ? { ...day, classes: [...day.classes, classToAdd] }
-          : day
-      )
-    );
-
-    setNewClass({
-      subject: "",
-      location: "",
-      type: "Lecture",
-      time: "",
-      students: "",
-    });
-    setShowAddClassModal(false);
+    setClasses([...classes, newClass]);
+    setClassDay("");
+    setClassSubject("");
+    setClassLocation("");
+    setClassType("");
+    setClassTime("");
+    setClassStudents("");
+    Alert.alert("Success", "Class added successfully!");
   };
 
-  const removeClass = (dayName: string, classId: string) => {
-    setWeekSchedule((prev) =>
-      prev.map((day) =>
-        day.day === dayName
-          ? { ...day, classes: day.classes.filter((c) => c.id !== classId) }
-          : day
-      )
-    );
+  const deleteClass = (id) => {
+    setClasses(classes.filter((c) => c.id !== id));
   };
 
-  const generateAISchedule = () => {
-    if (!aiPrompt.trim()) {
-      Alert.alert("Error", "Please enter your scheduling requirements");
+  const publishSchedule = async () => {
+    if (!scheduleName.trim()) {
+      Alert.alert("Error", "Please enter schedule name");
+      return;
+    }
+    if (classes.length === 0) {
+      Alert.alert("Error", "Please add at least one class");
+      return;
+    }
+    if (!userId) {
+      Alert.alert("Error", "User ID not found. Please log in again.");
+      router.replace("/(tabs)");
       return;
     }
 
-    // Simulate AI generation with sample data
-    const sampleSchedule: DaySchedule[] = [
-      {
-        day: "Monday",
-        classes: [
-          {
-            id: "1",
-            subject: "Mathematics",
-            location: "Room A1",
-            type: "Lecture",
-            time: "9:00 AM",
-            students: 30,
-          },
-          {
-            id: "2",
-            subject: "Physics",
-            location: "Lab B",
-            type: "Lab",
-            time: "2:00 PM",
-            students: 25,
-          },
-        ],
-      },
-      {
-        day: "Tuesday",
-        classes: [
-          {
-            id: "3",
-            subject: "Chemistry",
-            location: "Lab C",
-            type: "Lab",
-            time: "10:00 AM",
-            students: 20,
-          },
-          {
-            id: "4",
-            subject: "Mathematics",
-            location: "Room A1",
-            type: "Tutorial",
-            time: "3:00 PM",
-            students: 15,
-          },
-        ],
-      },
-      {
-        day: "Wednesday",
-        classes: [
-          {
-            id: "5",
-            subject: "Physics",
-            location: "Room B2",
-            type: "Lecture",
-            time: "11:00 AM",
-            students: 28,
-          },
-        ],
-      },
-      { day: "Thursday", classes: [] },
-      { day: "Friday", classes: [] },
-      { day: "Saturday", classes: [] },
-      { day: "Sunday", classes: [] },
-    ];
+    try {
+      const scheduleData = {
+        name: scheduleName,
+        teacherId: userId,
+        isActive: true,
+        weekSchedule: JSON.stringify(classes), // Store all class data here
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
 
-    setWeekSchedule(sampleSchedule);
-    Alert.alert("Success", "AI schedule generated based on your requirements!");
-  };
+      console.log("Publishing schedule with data:", scheduleData);
 
-  const clearSchedule = () => {
-    setWeekSchedule((prev) => prev.map((day) => ({ ...day, classes: [] })));
+      await databases.createDocument(
+        DATABASE_ID,
+        SCHEDULES_COLLECTION_ID,
+        ID.unique(),
+        scheduleData,
+        [
+          Permission.read(Role.users()),
+          Permission.write(Role.user(userId)),
+          Permission.update(Role.user(userId)),
+          Permission.delete(Role.user(userId)),
+        ]
+      );
+
+      Alert.alert(
+        "Success",
+        `Schedule "${scheduleName}" published successfully!`,
+        [
+          {
+            text: "OK",
+            onPress: () => router.push("/(tabs)/ScheduleScreenTeacher"),
+          },
+        ]
+      );
+    } catch (error) {
+      console.error("Publish schedule error:", error);
+      Alert.alert("Error", `Failed to publish schedule: ${error.message}`);
+    }
   };
 
   return (
     <SafeAreaView className="flex-1">
-      <ScrollView className="flex-1 bg-gray-50">
-        <View className="px-4 py-6">
-          {/* Header */}
-          <View className="flex-row justify-between items-center mb-6">
-            <Text className="text-3xl font-bold text-gray-900">
+      <ScrollView className="flex-1 bg-gray-100">
+        <View className="bg-white px-4 py-3 border-b border-gray-200">
+          <View className="flex-row items-center">
+            <TouchableOpacity
+              className="mr-3 pr-4"
+              onPress={() => router.back()}
+            >
+              <Text className="text-2xl text-gray-600">
+                <Ionicons name="arrow-back-sharp" size={24} />
+              </Text>
+            </TouchableOpacity>
+            <Text className="text-xl font-bold text-gray-800">
               Create Schedule
             </Text>
-            <TouchableOpacity
-              onPress={clearSchedule}
-              className="bg-red-100 rounded-xl px-4 py-2"
-            >
-              <Text className="text-red-600 font-semibold">Clear All</Text>
-            </TouchableOpacity>
           </View>
+        </View>
 
-          {/* Mode Selection */}
-          <View className="bg-white rounded-2xl p-4 mb-6 shadow-sm">
-            <Text className="text-lg font-bold text-gray-900 mb-4">
-              Scheduling Mode
+        <View className="p-4 space-y-4">
+          <View className="bg-white rounded-lg p-4 shadow-sm">
+            <Text className="text-lg font-semibold text-gray-800 mb-3">
+              Schedule Information
             </Text>
-            <View className="flex-row space-x-4">
-              <TouchableOpacity
-                onPress={() => setScheduleMode("manual")}
-                className={`flex-1 py-3 px-4 rounded-xl ${
-                  scheduleMode === "manual" ? "bg-blue-600" : "bg-gray-100"
-                }`}
-              >
-                <Text
-                  className={`text-center font-semibold ${
-                    scheduleMode === "manual" ? "text-white" : "text-gray-700"
-                  }`}
-                >
-                  Manual
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setScheduleMode("ai")}
-                className={`flex-1 py-3 px-4 rounded-xl ${
-                  scheduleMode === "ai" ? "bg-purple-600" : "bg-gray-100"
-                }`}
-              >
-                <Text
-                  className={`text-center font-semibold ${
-                    scheduleMode === "ai" ? "text-white" : "text-gray-700"
-                  }`}
-                >
-                  AI Assisted
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <TextInput
+              className="border border-gray-300 rounded-lg p-3 mb-3 text-base"
+              placeholder="Enter schedule name..."
+              value={scheduleName}
+              onChangeText={setScheduleName}
+            />
           </View>
 
-          {/* AI Mode */}
-          {scheduleMode === "ai" && (
-            <View className="bg-white rounded-2xl p-4 mb-6 shadow-sm">
-              <Text className="text-lg font-bold text-gray-900 mb-4">
-                AI Schedule Generation
+          {classes.length > 0 && (
+            <View className="bg-white rounded-lg p-4 shadow-sm">
+              <Text className="text-lg font-semibold text-gray-800 mb-3">
+                Added Classes ({classes.length})
               </Text>
-              <TextInput
-                className="border border-gray-200 rounded-xl p-4 mb-4 min-h-[100px]"
-                placeholder="Describe your scheduling needs... e.g., 'I need to teach Mathematics and Physics to 30 students, prefer morning classes, need lab sessions...'"
-                multiline
-                value={aiPrompt}
-                onChangeText={setAiPrompt}
-                textAlignVertical="top"
-              />
-              <TouchableOpacity
-                onPress={generateAISchedule}
-                className="bg-purple-600 rounded-xl py-3"
-              >
-                <Text className="text-white font-semibold text-center">
-                  Generate Schedule with AI
-                </Text>
-              </TouchableOpacity>
+              {classes.map((c, index) => (
+                <View
+                  key={c.id}
+                  className="border-l-4 border-blue-500 bg-blue-50 p-3 mb-3 rounded"
+                >
+                  <View className="flex-row justify-between items-start mb-2">
+                    <Text className="text-sm font-bold text-blue-600">
+                      Class {index + 1}
+                    </Text>
+                    <TouchableOpacity
+                      className="bg-red-500 px-2 py-1 rounded"
+                      onPress={() => deleteClass(c.id)}
+                    >
+                      <Text className="text-white text-xs">Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text className="text-sm text-gray-800">Day: {c.day}</Text>
+                  <Text className="text-sm text-gray-800">
+                    Subject: {c.subject}
+                  </Text>
+                  <Text className="text-sm text-gray-800">
+                    Location: {c.location}
+                  </Text>
+                  <Text className="text-sm text-gray-800">Type: {c.type}</Text>
+                  <Text className="text-sm text-gray-800">Time: {c.time}</Text>
+                  <Text className="text-sm text-gray-800">
+                    Students: {c.students}
+                  </Text>
+                </View>
+              ))}
             </View>
           )}
 
-          {/* Weekly Schedule */}
-          <View className="space-y-4">
-            {weekSchedule.map((daySchedule, index) => (
-              <View
-                key={index}
-                className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
-              >
-                <View className="flex-row justify-between items-center mb-4">
-                  <Text className="text-xl font-bold text-gray-900">
-                    {daySchedule.day}
-                  </Text>
-                  {scheduleMode === "manual" &&
-                    daySchedule.classes.length < 3 && (
-                      <TouchableOpacity
-                        onPress={() => {
-                          setSelectedDay(daySchedule.day);
-                          setShowAddClassModal(true);
-                        }}
-                        className="bg-blue-100 rounded-lg p-2"
-                      >
-                        <Ionicons name="add" size={20} color="#2563eb" />
-                      </TouchableOpacity>
-                    )}
-                </View>
-
-                {daySchedule.classes.length === 0 ? (
-                  <View className="py-8 items-center">
-                    <Ionicons
-                      name="calendar-outline"
-                      size={32}
-                      color="#9ca3af"
-                    />
-                    <Text className="text-gray-400 mt-2">
-                      No classes scheduled
-                    </Text>
-                  </View>
-                ) : (
-                  <View className="space-y-3">
-                    {daySchedule.classes.map((classItem, classIndex) => (
-                      <View
-                        key={classIndex}
-                        className="flex-row items-center justify-between p-3 bg-gray-50 rounded-xl"
-                      >
-                        <View className="flex-row items-center flex-1">
-                          <View className="bg-blue-100 rounded-lg p-2 mr-3">
-                            <Ionicons name="book" size={16} color="#2563eb" />
-                          </View>
-                          <View className="flex-1">
-                            <Text className="font-semibold text-gray-900">
-                              {classItem.subject}
-                            </Text>
-                            <Text className="text-sm text-gray-600">
-                              {classItem.type} • {classItem.location} •{" "}
-                              {classItem.students} students
-                            </Text>
-                          </View>
-                        </View>
-                        <View className="flex-row items-center">
-                          <Text className="font-semibold text-gray-900 mr-2">
-                            {classItem.time}
-                          </Text>
-                          {scheduleMode === "manual" && (
-                            <TouchableOpacity
-                              onPress={() =>
-                                removeClass(daySchedule.day, classItem.id)
-                              }
-                              className="bg-red-100 rounded-lg p-1"
-                            >
-                              <Ionicons
-                                name="trash"
-                                size={14}
-                                color="#dc2626"
-                              />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Add Class Modal */}
-      <Modal
-        visible={showAddClassModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <SafeAreaView className="flex-1 bg-white">
-          <View className="px-4 py-6">
-            <View className="flex-row justify-between items-center mb-6">
-              <Text className="text-2xl font-bold text-gray-900">
-                Add Class
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowAddClassModal(false)}
-                className="bg-gray-100 rounded-lg p-2"
-              >
-                <Ionicons name="close" size={20} color="#374151" />
-              </TouchableOpacity>
-            </View>
-
-            <View className="space-y-4">
-              <View>
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Subject
-                </Text>
-                <TextInput
-                  className="border border-gray-200 rounded-xl p-4"
-                  placeholder="e.g., Mathematics"
-                  value={newClass.subject}
-                  onChangeText={(text) =>
-                    setNewClass((prev) => ({ ...prev, subject: text }))
-                  }
-                />
-              </View>
-
-              <View>
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Location
-                </Text>
-                <TextInput
-                  className="border border-gray-200 rounded-xl p-4"
-                  placeholder="e.g., Room A1, Lab B"
-                  value={newClass.location}
-                  onChangeText={(text) =>
-                    setNewClass((prev) => ({ ...prev, location: text }))
-                  }
-                />
-              </View>
-
-              <View>
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Type
-                </Text>
-                <View className="flex-row space-x-2">
-                  {["Lecture", "Lab", "Tutorial", "Project"].map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      onPress={() => setNewClass((prev) => ({ ...prev, type }))}
-                      className={`px-4 py-2 rounded-xl ${
-                        newClass.type === type ? "bg-blue-600" : "bg-gray-100"
+          <View className="bg-white rounded-lg p-4 shadow-sm">
+            <Text className="text-lg font-semibold text-gray-800 mb-3">
+              Add New Class
+            </Text>
+            <Text className="text-sm font-medium text-gray-700 mb-2">Day:</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mb-3"
+            >
+              <View className="flex-row space-x-2">
+                {days.map((day) => (
+                  <TouchableOpacity
+                    key={day}
+                    className={`px-4 py-2 rounded-full border ${
+                      classDay === day
+                        ? "bg-blue-500 border-blue-500"
+                        : "bg-white border-gray-300"
+                    }`}
+                    onPress={() => setClassDay(day)}
+                  >
+                    <Text
+                      className={`text-sm ${
+                        classDay === day ? "text-white" : "text-gray-700"
                       }`}
                     >
-                      <Text
-                        className={`font-medium ${
-                          newClass.type === type
-                            ? "text-white"
-                            : "text-gray-700"
-                        }`}
-                      >
-                        {type}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                      {day}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-
-              <View>
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Time
-                </Text>
-                <TextInput
-                  className="border border-gray-200 rounded-xl p-4"
-                  placeholder="e.g., 9:00 AM"
-                  value={newClass.time}
-                  onChangeText={(text) =>
-                    setNewClass((prev) => ({ ...prev, time: text }))
-                  }
-                />
+            </ScrollView>
+            <Text className="text-sm font-medium text-gray-700 mb-2">
+              Subject:
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mb-3"
+            >
+              <View className="flex-row space-x-2">
+                {subjects.map((subject) => (
+                  <TouchableOpacity
+                    key={subject}
+                    className={`px-4 py-2 rounded-full border ${
+                      classSubject === subject
+                        ? "bg-blue-500 border-blue-500"
+                        : "bg-white border-gray-300"
+                    }`}
+                    onPress={() => setClassSubject(subject)}
+                  >
+                    <Text
+                      className={`text-sm ${
+                        classSubject === subject
+                          ? "text-white"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      {subject}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-
-              <View>
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Number of Students
-                </Text>
-                <TextInput
-                  className="border border-gray-200 rounded-xl p-4"
-                  placeholder="e.g., 30"
-                  keyboardType="numeric"
-                  value={newClass.students}
-                  onChangeText={(text) =>
-                    setNewClass((prev) => ({ ...prev, students: text }))
-                  }
-                />
+            </ScrollView>
+            <TextInput
+              className="border border-gray-300 rounded-lg p-3 mb-3 text-base"
+              placeholder="Location (e.g., Room 101)"
+              value={classLocation}
+              onChangeText={setClassLocation}
+            />
+            <Text className="text-sm font-medium text-gray-700 mb-2">
+              Type:
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mb-3"
+            >
+              <View className="flex-row space-x-2">
+                {types.map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    className={`px-4 py-2 rounded-full border ${
+                      classType === type
+                        ? "bg-blue-500 border-blue-500"
+                        : "bg-white border-gray-300"
+                    }`}
+                    onPress={() => setClassType(type)}
+                  >
+                    <Text
+                      className={`text-sm ${
+                        classType === type ? "text-white" : "text-gray-700"
+                      }`}
+                    >
+                      {type}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-
-              <TouchableOpacity
-                onPress={addClass}
-                className="bg-blue-600 rounded-xl py-4 mt-6"
-              >
-                <Text className="text-white font-semibold text-center text-lg">
-                  Add Class
-                </Text>
-              </TouchableOpacity>
-            </View>
+            </ScrollView>
+            <TextInput
+              className="border border-gray-300 rounded-lg p-3 mb-3 text-base"
+              placeholder="Time (e.g., 9:00 AM)"
+              value={classTime}
+              onChangeText={setClassTime}
+            />
+            <TextInput
+              className="border border-gray-300 rounded-lg p-3 mb-3 text-base"
+              placeholder="Number of students"
+              value={classStudents}
+              onChangeText={setClassStudents}
+              keyboardType="numeric"
+            />
+            <TouchableOpacity
+              className="bg-blue-500 rounded-lg py-3 items-center"
+              onPress={addClass}
+            >
+              <Text className="text-white font-semibold text-base">
+                + Add Class
+              </Text>
+            </TouchableOpacity>
           </View>
-        </SafeAreaView>
-      </Modal>
+
+          <TouchableOpacity
+            className="bg-green-600 rounded-lg py-4 items-center mb-6"
+            onPress={publishSchedule}
+          >
+            <Text className="text-white font-bold text-lg">
+              🚀 Publish Schedule
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };

@@ -1,3 +1,4 @@
+// app/auth/AuthScreen.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
@@ -142,14 +143,14 @@ const AuthScreen = ({ onAuthComplete, onLogout }) => {
         const storedEmail = await AsyncStorage.getItem("userEmail");
         if (storedEmail) {
           const user = await account.get();
+          await AsyncStorage.setItem("userId", user.$id); // Store userId
+          await AsyncStorage.setItem("userRole", user.prefs?.role || "student");
           setIsLoggedIn(true);
         }
       } catch (error) {
         console.log("No active session:", error);
         setIsLoggedIn(false);
-        // Clear stored data if session is invalid
-        await AsyncStorage.removeItem("userEmail");
-        await AsyncStorage.removeItem("userRole");
+        await AsyncStorage.multiRemove(["userEmail", "userId", "userRole"]);
       }
     };
     checkSession();
@@ -187,72 +188,42 @@ const AuthScreen = ({ onAuthComplete, onLogout }) => {
     setErrors({});
 
     try {
+      let user;
       if (isSignup) {
-        // Create account with regular client (this requires guest registration to be enabled)
-        await account.create(ID.unique(), email, password, name);
-
-        // Login after creation
+        user = await account.create(ID.unique(), email, password, name);
         await account.createEmailPasswordSession(email, password);
-
-        // Store user data
+        await AsyncStorage.setItem("userId", user.$id); // Store userId
         await AsyncStorage.setItem("userEmail", email);
         await AsyncStorage.setItem("userRole", role);
-
-        // Update user preferences
         await account.updatePrefs({ role });
-
         Alert.alert("Success", "Account created successfully!");
       } else {
-        // Login with regular client
         await account.createEmailPasswordSession(email, password);
+        user = await account.get();
+        const userRole = user.prefs?.role || "student";
+        await AsyncStorage.setItem("userId", user.$id); // Store userId
         await AsyncStorage.setItem("userEmail", email);
-
-        // Get user preferences or default to student
-        try {
-          const user = await account.get();
-          const userRole = user.prefs?.role || "student";
-          await AsyncStorage.setItem("userRole", userRole);
-          await account.updatePrefs({ role: userRole });
-        } catch (prefError) {
-          console.log("Error getting user prefs:", prefError);
-          await AsyncStorage.setItem("userRole", "student");
-        }
-
+        await AsyncStorage.setItem("userRole", userRole);
+        await account.updatePrefs({ role: userRole });
         Alert.alert("Success", "Signed in successfully!");
       }
 
       setIsLoggedIn(true);
 
       // Redirect based on role
-      if (isSignup) {
-        if (role === "teacher") {
-          router.replace("/(tabs)/");
-        } else {
-          router.replace("/(tabs)/StudentDashboard");
-        }
-      } else {
-        // Get stored role and redirect accordingly
-        const storedRole = await AsyncStorage.getItem("userRole");
-        if (storedRole === "teacher") {
-          router.replace("/(tabs)/");
-        } else {
-          router.replace("/(tabs)/StudentDashboard");
-        }
-      }
-
+      const redirectPath =
+        user.prefs?.role === "teacher"
+          ? "/(tabs)/"
+          : "/(tabs)/StudentDashboard";
+      router.replace(redirectPath);
       onAuthComplete();
     } catch (error) {
       console.log("Auth error:", error);
       let errorMessage = "An error occurred during authentication";
-
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.code === 401) {
-        errorMessage = "Invalid email or password";
-      } else if (error.code === 409) {
+      if (error.message) errorMessage = error.message;
+      else if (error.code === 401) errorMessage = "Invalid email or password";
+      else if (error.code === 409)
         errorMessage = "An account with this email already exists";
-      }
-
       Alert.alert("Authentication Error", errorMessage);
     } finally {
       setIsLoading(false);
@@ -260,24 +231,19 @@ const AuthScreen = ({ onAuthComplete, onLogout }) => {
   };
 
   const handleLogout = async () => {
-    if (onLogout) {
-      await onLogout(); // Use the logout handler from parent
-    } else {
-      // Fallback logout logic
-      try {
-        await account.deleteSession("current");
-      } catch (error) {
-        console.log("Logout error:", error);
-      } finally {
-        await AsyncStorage.removeItem("userEmail");
-        await AsyncStorage.removeItem("userRole");
-        setIsLoggedIn(false);
-        setEmail("");
-        setPassword("");
-        setName("");
-        setIsSignup(false);
-        setErrors({});
-      }
+    try {
+      await account.deleteSession("current");
+    } catch (error) {
+      console.log("Logout error:", error);
+    } finally {
+      await AsyncStorage.multiRemove(["userEmail", "userId", "userRole"]);
+      setIsLoggedIn(false);
+      setEmail("");
+      setPassword("");
+      setName("");
+      setIsSignup(false);
+      setErrors({});
+      onLogout();
     }
   };
 
@@ -314,7 +280,6 @@ const AuthScreen = ({ onAuthComplete, onLogout }) => {
               error={errors.email}
               keyboardType="email-address"
             />
-
             {isSignup && (
               <InputField
                 ref={nameRef}
@@ -324,7 +289,6 @@ const AuthScreen = ({ onAuthComplete, onLogout }) => {
                 error={errors.name}
               />
             )}
-
             <InputField
               ref={passwordRef}
               placeholder="Password"
@@ -336,7 +300,6 @@ const AuthScreen = ({ onAuthComplete, onLogout }) => {
               onToggleShow={() => setShowPassword(!showPassword)}
               showValue={showPassword}
             />
-
             {isSignup && (
               <View className="mb-4">
                 <Text className="text-gray-700 font-medium mb-2">Role</Text>
@@ -352,7 +315,6 @@ const AuthScreen = ({ onAuthComplete, onLogout }) => {
                 </View>
               </View>
             )}
-
             <CustomButton
               title={isSignup ? "Create Account" : "Sign In"}
               onPress={handleAuth}

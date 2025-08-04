@@ -1,101 +1,150 @@
-import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { Text, View } from "react-native";
+// app/schedule/ScheduleScreen.tsx
+import { Feather as Icon } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Query } from "appwrite";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import { Alert, RefreshControl, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  DATABASE_ID,
+  databases,
+  SCHEDULES_COLLECTION_ID,
+} from "../../utils/appwrite-config";
 
-const ScheduleScreen = () => (
-  <View className="flex-1 bg-gray-50 px-4 py-6">
-    <Text className="text-3xl font-bold text-gray-900 mb-8">My Schedule</Text>
+const ScheduleScreen = () => {
+  const router = useRouter();
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [schedules, setSchedules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-    <View className="space-y-6">
-      {[
-        {
-          day: "Today",
-          classes: [
-            {
-              time: "10:00 AM",
-              subject: "Advanced Math",
-              location: "Room A",
-              type: "Lecture",
-            },
-            {
-              time: "2:00 PM",
-              subject: "CS 101",
-              location: "Lab 3",
-              type: "Lab",
-            },
-          ],
-        },
-        {
-          day: "Tomorrow",
-          classes: [
-            {
-              time: "9:00 AM",
-              subject: "Data Structures",
-              location: "Room B",
-              type: "Lecture",
-            },
-            {
-              time: "11:30 AM",
-              subject: "Advanced Math",
-              location: "Room A",
-              type: "Tutorial",
-            },
-          ],
-        },
-        {
-          day: "Wednesday",
-          classes: [
-            {
-              time: "10:00 AM",
-              subject: "CS 101",
-              location: "Lab 3",
-              type: "Project",
-            },
-            {
-              time: "3:00 PM",
-              subject: "Data Structures",
-              location: "Room B",
-              type: "Lab",
-            },
-          ],
-        },
-      ].map((daySchedule, index) => (
-        <View
-          key={index}
-          className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100"
-        >
-          <Text className="text-xl font-bold text-gray-900 mb-4">
-            {daySchedule.day}
+  const fetchSchedules = async () => {
+    try {
+      const role = await AsyncStorage.getItem("userRole");
+      setUserRole(role || "student");
+
+      if (role !== "student") {
+        Alert.alert("Error", "Access restricted to students.");
+        router.replace("/(tabs)");
+        return;
+      }
+
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        SCHEDULES_COLLECTION_ID,
+        [
+          Query.equal("isActive", true),
+          Query.orderDesc("createdAt"),
+          Query.limit(25),
+        ]
+      );
+
+      const formattedSchedules = response.documents.map((schedule) => ({
+        id: schedule.$id,
+        name: schedule.name,
+        teacherId: schedule.teacherId,
+        isActive: schedule.isActive,
+        weekSchedule: JSON.parse(schedule.weekSchedule || "[]"),
+        createdAt: schedule.createdAt,
+      }));
+
+      setSchedules(formattedSchedules);
+    } catch (error) {
+      console.error("Error fetching schedules:", error);
+      Alert.alert("Error", "Failed to load schedules. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchSchedules();
+    }, [])
+  );
+
+  useEffect(() => {
+    fetchSchedules();
+  }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchSchedules();
+    setRefreshing(false);
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
+        <Text className="text-lg text-gray-600">Loading schedules...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <ScrollView
+        className="flex-1"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View className="p-4 mb-4">
+          <Text className="text-3xl font-bold text-gray-900 mb-2">
+            Your Schedules
           </Text>
-          <View className="space-y-4">
-            {daySchedule.classes.map((classItem, classIndex) => (
+          <Text className="text-gray-600">
+            {schedules.length} active schedules
+          </Text>
+        </View>
+
+        <View className="px-4 pb-8">
+          {schedules.length === 0 ? (
+            <View className="bg-white rounded-2xl p-8 items-center">
+              <Icon name="calendar" size={48} color="#9CA3AF" />
+              <Text className="text-lg font-medium text-gray-500 mt-4">
+                No schedules available
+              </Text>
+              <Text className="text-gray-400 text-center mt-2">
+                Check back later for new schedules
+              </Text>
+            </View>
+          ) : (
+            schedules.map((schedule) => (
               <View
-                key={classIndex}
-                className="flex-row items-center justify-between p-4 bg-gray-50 rounded-xl"
+                key={schedule.id}
+                className="bg-white rounded-2xl p-6 mb-4 shadow-sm border border-gray-100"
               >
-                <View className="flex-row items-center space-x-4">
-                  <View className="bg-blue-100 rounded-lg p-2 mr-4">
-                    <Ionicons name="book" size={20} color="#2563eb" />
-                  </View>
-                  <View>
-                    <Text className="font-semibold text-gray-900">
-                      {classItem.subject}
+                <Text className="text-xl font-semibold text-gray-900 mb-2">
+                  {schedule.name}
+                </Text>
+                <Text className="text-gray-600 mb-2">
+                  Created: {new Date(schedule.createdAt).toLocaleDateString()}
+                </Text>
+                {schedule.weekSchedule.map((cls, index) => (
+                  <View
+                    key={index}
+                    className="border-t border-gray-200 pt-2 mt-2"
+                  >
+                    <Text className="text-sm font-medium text-gray-800">
+                      {cls.day} - {cls.subject}
                     </Text>
                     <Text className="text-sm text-gray-600">
-                      {classItem.type} • {classItem.location}
+                      {cls.time} | {cls.location} | {cls.type}
+                    </Text>
+                    <Text className="text-sm text-gray-600">
+                      Students: {cls.students}
                     </Text>
                   </View>
-                </View>
-                <Text className="font-semibold text-gray-900">
-                  {classItem.time}
-                </Text>
+                ))}
               </View>
-            ))}
-          </View>
+            ))
+          )}
         </View>
-      ))}
-    </View>
-  </View>
-);
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
 
 export default ScheduleScreen;
